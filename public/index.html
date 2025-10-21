@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Socket.IO chat</title>
+  <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      #name-form-container { display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+      #name-form { display: flex; flex-direction: column; gap: 1rem; min-width: 300px; }
+      #name-input, #channel-select { padding: 0.75rem; border: 2px solid #333; border-radius: 4px; font-size: 1rem; }
+      #name-submit { padding: 0.75rem; background: #333; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+      #name-submit:hover { background: #555; }
+
+      #chat-container { display: none; }
+      
+      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 200px; background: #2c3e50; color: #fff; padding: 1rem; }
+      .sidebar h3 { margin-top: 0; }
+      .channel-list { list-style: none; padding: 0; }
+      .channel-item { padding: 0.5rem; margin: 0.5rem 0; background: #34495e; border-radius: 4px; cursor: pointer; }
+      .channel-item:hover { background: #3d5a80; }
+      .channel-item.active { background: #3498db; }
+      
+      .main-content { margin-left: 220px; }
+      .user-header { background: #333; color: #fff; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+      
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 220px; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+
+      #messages { list-style-type: none; margin: 0; padding: 0; padding-bottom: 4rem; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+  </style>
+</head>
+<body>
+  <!-- Name Entry Form -->
+  <div id="name-form-container">
+    <h1>Welcome to Chatter Tots</h1>
+    <form id="name-form">
+      <input id="name-input" type="text" placeholder="Enter your name" required autocomplete="off" />
+      <select id="channel-select">
+        <option value="general">General</option>
+        <option value="random">Random</option>
+        <option value="tech">Tech</option>
+        <option value="gaming">Gaming</option>
+      </select>
+      <button id="name-submit" type="submit">Join Chat</button>
+    </form>
+  </div>
+
+  <!-- Chat Container -->
+  <div id="chat-container">
+    <div class="sidebar">
+      <h3>Channels</h3>
+      <ul class="channel-list">
+        <li class="channel-item active" data-channel="general"># general</li>
+        <li class="channel-item" data-channel="random"># random</li>
+        <li class="channel-item" data-channel="tech"># tech</li>
+        <li class="channel-item" data-channel="gaming"># gaming</li>
+      </ul>
+    </div>
+    
+    <div class="main-content">
+      <div class="user-header">
+        <div>
+          <h3>Welcome, <span id="user-name"></span>!</h3>
+          <small>Channel: #<span id="current-channel"></span></small>
+        </div>
+        <button id="toggle-btn">Disconnect</button>
+      </div>
+      <ul id="messages"></ul>
+      <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket;
+    let userName = '';
+    let currentChannel = '';
+
+    const nameFormContainer = document.getElementById('name-form-container');
+    const nameForm = document.getElementById('name-form');
+    const nameInput = document.getElementById('name-input');
+    const channelSelect = document.getElementById('channel-select');
+    const chatContainer = document.getElementById('chat-container');
+    const userNameDisplay = document.getElementById('user-name');
+    const currentChannelDisplay = document.getElementById('current-channel');
+    const toggleButton = document.getElementById('toggle-btn');
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const messages = document.getElementById('messages');
+    const channelItems = document.querySelectorAll('.channel-item');
+
+    // Handle name submission
+    nameForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      userName = nameInput.value.trim();
+      currentChannel = channelSelect.value;
+      
+      if (userName) {
+        // Hide name form and show chat
+        nameFormContainer.style.display = 'none';
+        chatContainer.style.display = 'block';
+        userNameDisplay.textContent = userName;
+        currentChannelDisplay.textContent = currentChannel;
+
+        // Initialize socket connection
+        socket = io();
+
+        // Emit user joined event with channel
+        socket.emit('user joined', { userName, channel: currentChannel });
+
+        // Setup chat listeners
+        setupChatListeners();
+      }
+    });
+
+    function setupChatListeners() {
+      // Channel switching
+      channelItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const newChannel = item.dataset.channel;
+          if (newChannel !== currentChannel) {
+            currentChannel = newChannel;
+            currentChannelDisplay.textContent = currentChannel;
+            
+            // Update active channel styling
+            channelItems.forEach(ch => ch.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Clear messages
+            messages.innerHTML = '';
+            
+            // Emit channel switch
+            socket.emit('switch channel', newChannel);
+          }
+        });
+      });
+
+      // Toggle connection button
+      toggleButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (socket.connected) {
+          toggleButton.innerText = 'Connect';
+          socket.disconnect();
+        } else {
+          toggleButton.innerText = 'Disconnect';
+          socket.connect();
+        }
+      });
+
+      // Send message
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (input.value) {
+          socket.emit('chat message', input.value);
+          input.value = '';
+        }
+      });
+
+      // Receive messages
+      socket.on('chat message', (data) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<strong>${data.userName}:</strong> ${data.msg}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      // User joined notification
+      socket.on('user joined', (data) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<em>${data.userName} joined #${data.channel}</em>`;
+        item.style.color = '#666';
+        messages.appendChild(item);
+      });
+
+      // User left notification
+      socket.on('user left', (data) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<em>${data.userName} left</em>`;
+        item.style.color = '#666';
+        messages.appendChild(item);
+      });
+
+      // User disconnected notification
+      socket.on('user disconnected', (data) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<em>${data.userName} disconnected from #${data.channel}</em>`;
+        item.style.color = '#666';
+        messages.appendChild(item);
+      });
+
+      // Channel switched confirmation
+      socket.on('channel switched', (data) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<em>You switched to #${data.channel}</em>`;
+        item.style.color = '#3498db';
+        messages.appendChild(item);
+      });
+    }
+  </script>
+</body>
+</html>

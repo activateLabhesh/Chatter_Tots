@@ -2,6 +2,7 @@
   "name": "chatter_tots",
   "version": "1.0.0",
   "description": "",
+  "type":"module",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -20,8 +21,16 @@
   },
   "homepage": "https://github.com/activateLabhesh/Chatter_Tots#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "path": "^0.12.7",
+    "socket.io": "^4.8.1",
+    "supabase": "^2.48.3",
+    "websockets": "^0.2.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
