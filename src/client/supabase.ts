@@ -26,6 +26,7 @@ export const supabase = createClient(
   }
 );
 
+
 // Service role client for admin operations
 export const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,

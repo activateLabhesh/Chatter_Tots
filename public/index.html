@@ -40,12 +40,15 @@
     <h1>Welcome to Chatter Tots</h1>
     <form id="name-form">
       <input id="name-input" type="text" placeholder="Enter your name" required autocomplete="off" />
-      <select id="channel-select">
-        <option value="general">General</option>
-        <option value="random">Random</option>
-        <option value="tech">Tech</option>
-        <option value="gaming">Gaming</option>
-      </select>
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <select id="channel-select" style="flex:1">
+          <option value="general">General</option>
+          <option value="random">Random</option>
+          <option value="tech">Tech</option>
+          <option value="gaming">Gaming</option>
+        </select>
+        <input id="initial-new-channel" placeholder="Or create channel" style="flex:1; padding:0.5rem" />
+      </div>
       <button id="name-submit" type="submit">Join Chat</button>
     </form>
   </div>
@@ -60,6 +63,13 @@
         <li class="channel-item" data-channel="tech"># tech</li>
         <li class="channel-item" data-channel="gaming"># gaming</li>
       </ul>
+
+      <div style="margin-top:1rem">
+        <input id="new-channel-input" placeholder="New channel name" style="width:100%; padding:0.5rem; box-sizing:border-box" />
+        <button id="create-channel-btn" style="width:100%; margin-top:0.5rem; padding:0.5rem">Create & Join</button>
+        <input id="join-channel-input" placeholder="Join channel name" style="width:100%; padding:0.5rem; box-sizing:border-box; margin-top:0.5rem" />
+        <button id="join-channel-btn" style="width:100%; margin-top:0.5rem; padding:0.5rem">Join</button>
+      </div>
     </div>
     
     <div class="main-content">
@@ -86,21 +96,28 @@
     const nameFormContainer = document.getElementById('name-form-container');
     const nameForm = document.getElementById('name-form');
     const nameInput = document.getElementById('name-input');
-    const channelSelect = document.getElementById('channel-select');
+  const channelSelect = document.getElementById('channel-select');
     const chatContainer = document.getElementById('chat-container');
     const userNameDisplay = document.getElementById('user-name');
     const currentChannelDisplay = document.getElementById('current-channel');
     const toggleButton = document.getElementById('toggle-btn');
     const form = document.getElementById('form');
     const input = document.getElementById('input');
-    const messages = document.getElementById('messages');
+  const messages = document.getElementById('messages');
     const channelItems = document.querySelectorAll('.channel-item');
+  const newChannelInput = document.getElementById('new-channel-input');
+  const createChannelBtn = document.getElementById('create-channel-btn');
+  const joinChannelInput = document.getElementById('join-channel-input');
+  const joinChannelBtn = document.getElementById('join-channel-btn');
+  const initialNewChannel = document.getElementById('initial-new-channel');
 
     // Handle name submission
     nameForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      userName = nameInput.value.trim();
-      currentChannel = channelSelect.value;
+  userName = nameInput.value.trim();
+  // prefer the custom initial channel input if provided
+  const initialChannelValue = (initialNewChannel && initialNewChannel.value && initialNewChannel.value.trim()) || '';
+  currentChannel = initialChannelValue || channelSelect.value;
       
       if (userName) {
         // Hide name form and show chat
@@ -113,7 +130,7 @@
         socket = io();
 
         // Emit user joined event with channel
-        socket.emit('user joined', { userName, channel: currentChannel });
+        socket.emit('user joined', { userName, currentChannel });
 
         // Setup chat listeners
         setupChatListeners();
@@ -140,6 +157,28 @@
             socket.emit('switch channel', newChannel);
           }
         });
+      });
+
+      // Create channel button
+      createChannelBtn.addEventListener('click', () => {
+        const name = newChannelInput.value.trim();
+        if (!name) return;
+        currentChannel = name;
+        currentChannelDisplay.textContent = currentChannel;
+        channelItems.forEach(ch => ch.classList.remove('active'));
+        messages.innerHTML = '';
+        socket.emit('create channel', name);
+      });
+
+      // Join channel button
+      joinChannelBtn.addEventListener('click', () => {
+        const name = joinChannelInput.value.trim();
+        if (!name) return;
+        currentChannel = name;
+        currentChannelDisplay.textContent = currentChannel;
+        channelItems.forEach(ch => ch.classList.remove('active'));
+        messages.innerHTML = '';
+        socket.emit('join channel', name);
       });
 
       // Toggle connection button
@@ -179,6 +218,21 @@
         messages.appendChild(item);
       });
 
+      //retrieving messages
+      socket.on('previous messages', (msgs) =>{
+        // msgs is an array of message rows from the DB
+        messages.innerHTML = '';
+        (msgs || []).forEach(msg=>{
+          const item = document.createElement('li');
+          // supabase returns columns user_name and message (see server-side mapping)
+          const user = msg.user_name || msg.userName || 'Anonymous';
+          const text = msg.message || msg.msg || '';
+          item.innerHTML = `<strong>${user}:</strong> ${text}`;
+          messages.appendChild(item);
+        });
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
       // User left notification
       socket.on('user left', (data) => {
         const item = document.createElement('li');
@@ -205,4 +259,4 @@
     }
   </script>
 </body>
-</html>
+</html>3
