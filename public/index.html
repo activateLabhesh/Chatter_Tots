@@ -225,7 +225,7 @@
         (msgs || []).forEach(msg=>{
           const item = document.createElement('li');
           // supabase returns columns user_name and message (see server-side mapping)
-          const user = msg.user_name || msg.userName || 'Anonymous';
+          const user = msg.user_name || msg.username;
           const text = msg.message || msg.msg || '';
           item.innerHTML = `<strong>${user}:</strong> ${text}`;
           messages.appendChild(item);
